@@ -70,8 +70,15 @@ var g_BoatX = 0;
 var g_BoatZ = 0;
 var g_BoatAngle = 0;
 var g_BoatDistance = 0;
+var g_BoatStep = 0.5;
 
-var imageLocations = ["resources/water.jpg", "resources/floor.jpg", "resources/boatclub.jpg", "resources/tree.jpg"];
+var g_BoatXB = 0;
+var g_BoatZB = 0;
+var g_BoatAngleB = 0;
+var g_BoatDistanceB = 5;
+var g_BoatStepB = 0.5;
+
+var imageLocations = ["resources/water.jpg", "resources/floor.jpg", "resources/boatclub.jpg", "resources/tree.jpg", "resources/bridge.jpg"];
 
 var g_matrixStack = []; //matrix storage space
 function pushMatrix(m) {
@@ -137,6 +144,7 @@ function main() {
   // Pass the model, view, and projection matrix to the uniform variable respectively
   gl.uniformMatrix4fv(u_ViewProjMatrix, false, viewProjMatrix.elements);
 
+  //load all of the images and then start the animation loop, so that images arent loaded every frame
   loadImages(imageLocations, function(images){
     textures=[];
 		for(var i = 0; i < images.length; i++){
@@ -155,14 +163,16 @@ function main() {
   });
 }
 
-
+//load images and once all loaded, run the callback
 function loadImages(filesList, callback) {
   var images = [];
+  var loaded = 0;
   for (var i = 0; i < filesList.length; i++) {
     var tempImg = new Image();
 		tempImg.src = filesList[i];
 		tempImg.onload = function(){
-  			if (images.length == filesList.length) {
+        loaded += 1;
+  			if (loaded == filesList.length) {
   				callback(images);
   			}
   	}
@@ -170,6 +180,7 @@ function loadImages(filesList, callback) {
   }
 }
 
+//handler for key presses
 function keydown(ev, gl, u_ModelMatrix, u_NormalMatrix, u_ViewProjMatrix, u_UseTextures, u_Sampler, textures) {
   console.log("key pressed: ", ev.keyCode);
   switch (ev.keyCode) {
@@ -217,10 +228,9 @@ function keydown(ev, gl, u_ModelMatrix, u_NormalMatrix, u_ViewProjMatrix, u_UseT
 
     default: return; // Skip drawing at no effective action
   }
-  //draw(gl, u_ModelMatrix, u_NormalMatrix, u_ViewProjMatrix, u_UseTextures, u_Sampler, textures);
 }
 
-
+//init vertex buffers
 function initVertexBuffers(gl, file, defColor) {
   var vertices = new Float32Array(file[0].vertices);
   var list = []
@@ -252,6 +262,7 @@ function initVertexBuffers(gl, file, defColor) {
   return indices.length;
 }
 
+//init vertex buffers if a texture is used
 function initVertexBuffersWithTex(gl, file, defColor) {
   var vertices = new Float32Array(file[0].vertices);
   var list = []
@@ -288,6 +299,7 @@ function initVertexBuffersWithTex(gl, file, defColor) {
   return indices.length;
 }
 
+//init array buffer
 function initArrayBuffer (gl, attribute, data, num, type) {
   // Create a buffer object
   var buffer = gl.createBuffer();
@@ -314,94 +326,110 @@ function initArrayBuffer (gl, attribute, data, num, type) {
   return true;
 }
 
+//calculate the moving of the boats
 function moveThings(){
-  var angle = 90;
-  var step;
+  var angle = (165/180)*3.1415;
 
-  step = 0.05;
-  g_BoatDistance += step;
-  if (g_BoatDistance > 6){
-    g_BoatX = 0;
-    g_BoatZ = 0;
-    g_BoatDistance = 0;
-  } else {
-    g_BoatX = (g_BoatX + step*Math.cos(angle));
-    g_BoatZ = (g_BoatZ + step*Math.sin(angle));
+  if (g_BoatDistance > 10 && g_BoatAngle == 180){
+    g_BoatStep = -0.5;
+  } else if (g_BoatDistance > 10) {
+    g_BoatStep = 0;
+    g_BoatAngle += 30;
+  } else if (g_BoatDistance < 0 && g_BoatAngle == 0){
+    g_BoatStep = 0.5;
+  } else if (g_BoatDistance < 0){
+    g_BoatStep = 0;
+    g_BoatAngle -= 30;
   }
-  console.log(g_BoatX, g_BoatZ);
+
+  g_BoatDistance += g_BoatStep;
+
+  g_BoatX = (g_BoatX + g_BoatStep*Math.sin(angle));
+  g_BoatZ = (g_BoatZ + g_BoatStep*Math.cos(angle));
+
+  var angle = (165/180)*3.1415;
+
+  if (g_BoatDistanceB > 10 && g_BoatAngleB == 180){
+    g_BoatStepB = -0.5;
+  } else if (g_BoatDistanceB > 10) {
+    g_BoatStepB = 0;
+    g_BoatAngleB += 30;
+  } else if (g_BoatDistanceB < 0 && g_BoatAngleB == 0){
+    g_BoatStepB = 0.5;
+  } else if (g_BoatDistanceB < 0){
+    g_BoatStepB = 0;
+    g_BoatAngleB -= 30;
+  }
+
+  g_BoatDistanceB += g_BoatStepB;
+
+  g_BoatXB = (g_BoatXB + g_BoatStepB*Math.sin(angle));
+  g_BoatZB = (g_BoatZB + g_BoatStepB*Math.cos(angle));
+
 }
 
-
+//main draw function, handling everything
 function draw(gl, u_ModelMatrix, u_NormalMatrix, u_ViewProjMatrix, u_UseTextures, u_Sampler, textures) {
 
   // Clear color and depth buffer
   gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
   gl.clearColor(0.6,0.9,0.9,1);
 
-  // Calculate the view matrix and the projection matrix
-
-  //console.log(g_cameraHeight);
-
+  //set up camera and store
   viewProjMatrix.setPerspective(50, 1, 1, 100);
-  //viewProjMatrix.lookAt(1/50*400, g_cameraHeight, 1/50*400, 0, 0, 0, 0, 1, 0);
-  //console.log("angle: ", g_cameraAngle, "g_cameraHeight: ", g_cameraHeight, "g_cameraX: ", g_cameraX, "g_cameraZ: ", g_cameraZ);
   viewProjMatrix.rotate(g_cameraAngle2, 1, 0, 0);
   viewProjMatrix.rotate(g_cameraAngle, 0, 1, 0);
   viewProjMatrix.translate(g_cameraX, -g_cameraHeight, g_cameraZ);
 
-  //viewProjMatrix.rotate(g_cameraAngle2, Math.cos(g_cameraAngle), 0, Math.sin(g_cameraAngle));
-  // Pass the viewprojection matrix to the uniform variable respectively
   gl.uniformMatrix4fv(u_ViewProjMatrix, false, viewProjMatrix.elements);
 
-
-  // Rotate, and then translate
-
+  //reset model matrix
   modelMatrix.setTranslate(0, 0, 0);
-  //modelMatrix.rotate(180, 0, 1, 0);
 
-  //draw the terrain
+  //draw the terrain and water
   drawItemWithTex(gl, modelMatrix, u_ModelMatrix, u_NormalMatrix, floorData, [1,1,1], u_UseTextures, u_Sampler, textures[1]);
   drawItemWithTex(gl, modelMatrix, u_ModelMatrix, u_NormalMatrix, waterWithTexData, [1,1,1], u_UseTextures, u_Sampler, textures[0]);
+
+  //draw the trees
   pushMatrix(modelMatrix);
     modelMatrix.scale(3, 3, 3);
-    modelMatrix.translate(-1.3, 0, 2);
+    modelMatrix.translate(-1.3, 0.5, 2);
     drawItemWithTex(gl, modelMatrix, u_ModelMatrix, u_NormalMatrix, treeData, [1, 1, 1], u_UseTextures, u_Sampler, textures[3]);
     modelMatrix.setTranslate(0, 0, 0);
     modelMatrix.scale(3, 3, 3);
-    modelMatrix.translate(-1.7, 0, 4);
+    modelMatrix.translate(-1.7, 0.5, 4);
     drawItemWithTex(gl, modelMatrix, u_ModelMatrix, u_NormalMatrix, treeData, [1, 1, 1], u_UseTextures, u_Sampler, textures[3]);
     modelMatrix.setTranslate(0, 0, 0);
     modelMatrix.scale(3, 3, 3);
-    modelMatrix.translate(-1.8, 0, 8);
+    modelMatrix.translate(-1.8, 0.5, 8);
     drawItemWithTex(gl, modelMatrix, u_ModelMatrix, u_NormalMatrix, treeData, [1, 1, 1], u_UseTextures, u_Sampler, textures[3]);
   modelMatrix = popMatrix();
-
 
   //draw the bridge pieces
   pushMatrix(modelMatrix);
     modelMatrix.translate(-8, 0, 0);
-    drawItemNoTex(gl, modelMatrix, u_ModelMatrix, u_NormalMatrix, bridgeData, [1,1,1], u_UseTextures);
+    drawItemWithTex(gl, modelMatrix, u_ModelMatrix, u_NormalMatrix, bridgeData, [1,1,1], u_UseTextures, u_Sampler, textures[4]);
     modelMatrix.translate(4,0,0);
     modelMatrix.scale(1, 1.045, 1);
-    drawItemNoTex(gl, modelMatrix, u_ModelMatrix, u_NormalMatrix, bridgeData, [1,1,1], u_UseTextures);
+    drawItemWithTex(gl, modelMatrix, u_ModelMatrix, u_NormalMatrix, bridgeData, [1,1,1], u_UseTextures, u_Sampler, textures[4]);
     modelMatrix.translate(4,0,0);
     modelMatrix.scale(1, 1.045, 1);
-    drawItemNoTex(gl, modelMatrix, u_ModelMatrix, u_NormalMatrix, bridgeData, [1,1,1], u_UseTextures);
+    drawItemWithTex(gl, modelMatrix, u_ModelMatrix, u_NormalMatrix, bridgeData, [1,1,1], u_UseTextures, u_Sampler, textures[4]);
     modelMatrix.translate(4,0,0);
     modelMatrix.scale(1, 1.045, 1);
-    drawItemNoTex(gl, modelMatrix, u_ModelMatrix, u_NormalMatrix, bridgeData, [1,1,1], u_UseTextures);
+    drawItemWithTex(gl, modelMatrix, u_ModelMatrix, u_NormalMatrix, bridgeData, [1,1,1], u_UseTextures, u_Sampler, textures[4]);
     modelMatrix.translate(4,0,0);
     modelMatrix.scale(1, 1.045, 1);
-    drawItemNoTex(gl, modelMatrix, u_ModelMatrix, u_NormalMatrix, bridgeData, [1,1,1], u_UseTextures);
+    drawItemWithTex(gl, modelMatrix, u_ModelMatrix, u_NormalMatrix, bridgeData, [1,1,1], u_UseTextures, u_Sampler, textures[4]);
     modelMatrix.translate(4,0,0);
     modelMatrix.scale(1, 1.045, 1);
-    drawItemNoTex(gl, modelMatrix, u_ModelMatrix, u_NormalMatrix, bridgeData, [1,1,1], u_UseTextures);
+    drawItemWithTex(gl, modelMatrix, u_ModelMatrix, u_NormalMatrix, bridgeData, [1,1,1], u_UseTextures, u_Sampler, textures[4]);
     modelMatrix.translate(4,0,0);
     modelMatrix.scale(1, 1.045, 1);
-    drawItemNoTex(gl, modelMatrix, u_ModelMatrix, u_NormalMatrix, bridgeData, [1,1,1], u_UseTextures);
+    drawItemWithTex(gl, modelMatrix, u_ModelMatrix, u_NormalMatrix, bridgeData, [1,1,1], u_UseTextures, u_Sampler, textures[4]);
     modelMatrix.translate(4,0,0);
     modelMatrix.scale(1, 1.045, 1);
-    drawItemNoTex(gl, modelMatrix, u_ModelMatrix, u_NormalMatrix, bridgeData, [1,1,1], u_UseTextures);
+    drawItemWithTex(gl, modelMatrix, u_ModelMatrix, u_NormalMatrix, bridgeData, [1,1,1], u_UseTextures, u_Sampler, textures[4]);
   modelMatrix = popMatrix();
 
   //draw the boatclub and the boats
@@ -411,27 +439,40 @@ function draw(gl, u_ModelMatrix, u_NormalMatrix, u_ViewProjMatrix, u_UseTextures
     drawItemWithTex(gl, modelMatrix, u_ModelMatrix, u_NormalMatrix, boatClubData, [0,0.2,0.2], u_UseTextures, u_Sampler, textures[2]);
 
     modelMatrix.scale(2, 2, 2);
-    modelMatrix.translate(-1, -0.05, 3);
+    modelMatrix.translate(-1.5, -0.05, 3.5);
     for (var i = 0; i < 10; i++){
       drawItemNoTex(gl, modelMatrix, u_ModelMatrix, u_NormalMatrix, boatData, [0.4,0.1,0], u_UseTextures);
       modelMatrix.translate(0, -0, 0.5);
     }
-  popMatrix(modelMatrix);
+  modelMatrix = popMatrix(modelMatrix);
 
+  //draw the moving boats
   pushMatrix(modelMatrix);
-    modelMatrix.rotate(-85, 0, 1, 0);
-    modelMatrix.translate(5 + g_BoatX, -0.05, 3.9 + g_BoatZ);
+    modelMatrix.scale(2, 2, 2);
+    modelMatrix.translate(-.5 + g_BoatX, -0.05, 12 + g_BoatZ);
+    modelMatrix.rotate(-105 + g_BoatAngle, 0, 1, 0);
+    //modelMatrix.translate(12 + g_BoatX, -0.05, 2.2 + g_BoatZ);
     drawItemNoTex(gl, modelMatrix, u_ModelMatrix, u_NormalMatrix, boatData, [0.4,0.1,0], u_UseTextures);
   modelMatrix = popMatrix();
 
+  pushMatrix(modelMatrix);
+    modelMatrix.scale(2, 2, 2);
+    modelMatrix.translate(2.2 + g_BoatXB, -0.05, 8 + g_BoatZB);
+    modelMatrix.rotate(-105 + g_BoatAngleB, 0, 1, 0)
+    drawItemNoTex(gl, modelMatrix, u_ModelMatrix, u_NormalMatrix, boatData, [0.4,0.1,0], u_UseTextures);
+  modelMatrix = popMatrix();
+
+  //function to recall the draw function
   var animate = function(){
     moveThings();
     draw(gl, u_ModelMatrix, u_NormalMatrix, u_ViewProjMatrix, u_UseTextures, u_Sampler, textures);
   }
 
+  //once frame is loaded, draw another
   requestAnimationFrame(animate);
 }
 
+//function to draw a given model with no texture
 function drawItemNoTex(gl, modelMatrix, u_ModelMatrix, u_NormalMatrix, objectName, defColor, u_UseTextures){
   var n = initVertexBuffers(gl, objectName, defColor);
   if (n < 0) {
@@ -452,7 +493,10 @@ function drawItemNoTex(gl, modelMatrix, u_ModelMatrix, u_NormalMatrix, objectNam
   gl.drawElements(gl.TRIANGLES, n, gl.UNSIGNED_BYTE, 0);
 }
 
+//function to draw a given model with a given texture
 function drawItemWithTex(gl, modelMatrix, u_ModelMatrix, u_NormalMatrix, objectName, defColor, u_UseTextures, u_Sampler, texture){
+
+  //bind current texture and set it up
   gl.pixelStorei(gl.UNPACK_FLIP_Y_WEBGL, 1);
   gl.activeTexture(gl.TEXTURE0);
   gl.bindTexture(gl.TEXTURE_2D, texture);
@@ -475,33 +519,4 @@ function drawItemWithTex(gl, modelMatrix, u_ModelMatrix, u_NormalMatrix, objectN
   gl.uniformMatrix4fv(u_NormalMatrix, false, g_normalMatrix.elements);
   gl.drawElements(gl.TRIANGLES, n, gl.UNSIGNED_BYTE, 0);
 
-  //loadTexAndDraw(gl, n, texture, u_Sampler, u_UseTextures);
-
-  }
-
-function loadTexAndDraw(gl, n, texture, u_Sampler, u_UseTextures) {
-  gl.pixelStorei(gl.UNPACK_FLIP_Y_WEBGL, 1); // Flip the image's y axis
-
-  // Enable texture unit0
-  gl.activeTexture(gl.TEXTURE0);
-
-  // Bind the texture object to the target
-  gl.bindTexture(gl.TEXTURE_2D, texture);
-
-
-  // Enable texture mapping
-  gl.uniform1i(u_UseTextures, true);
-
-  // Assign u_Sampler to TEXTURE0
-  var sampler = gl.getUniformLocation(gl.program, 'u_Sampler');
-  gl.uniform1i(sampler, 0);
-
-  // Set the texture image
-  gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGB, gl.RGB, gl.UNSIGNED_BYTE, texture.image);
-  gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR);
-
-
-
-  // Draw the textured cube
-  //gl.drawElements(gl.TRIANGLES, n, gl.UNSIGNED_BYTE, 0);
 }
